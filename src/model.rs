@@ -1,19 +1,11 @@
-use diesel::prelude::*;
+use diesel::{deserialize::Queryable, prelude::Insertable, query_builder::AsChangeset};
 
-use crate::schema::animes;
+use crate::schema::anime;
 
-#[derive(Queryable, Selectable, Debug)]
-#[diesel(table_name = animes)]
+#[derive(Insertable, Queryable, Debug, AsChangeset)]
+#[diesel(table_name = anime)]
 pub struct Anime {
-    pub id: String,
+    pub id: i32,
     pub title: String,
     pub description: String,
 }
-
-// #[derive(Queryable, Debug)]
-// pub struct EpisodeInfo {
-//     pub anime_id: String,
-//     pub sub: i32,
-//     pub dub: i32,
-//     pub eps: i32,
-// }

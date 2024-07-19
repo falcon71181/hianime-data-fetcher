@@ -1,9 +1,8 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    animes (id) {
-        #[max_length = 50]
-        id -> Varchar,
+    anime (id) {
+        id -> Int4,
         #[max_length = 100]
         title -> Nullable<Varchar>,
         #[max_length = 500]
