@@ -1,8 +1,9 @@
-use diesel::{deserialize::Queryable, prelude::Insertable, query_builder::AsChangeset};
+use diesel::prelude::*;
 
 use crate::schema::anime;
 
-#[derive(Insertable, Queryable, Debug, AsChangeset)]
+#[derive(Queryable, Insertable, Selectable, Debug)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
 #[diesel(table_name = anime)]
 pub struct Anime {
     pub id: i32,
