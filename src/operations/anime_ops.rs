@@ -1,12 +1,22 @@
 // anime_ops.rs
 
 use crate::model::Anime;
-use crate::schema::anime;
+use crate::schema::anime::{self, id};
 use diesel::prelude::*;
 use diesel::result::Error;
 
 pub fn add_new_anime(new_anime: Anime, connection: &mut PgConnection) -> Result<(), Error> {
-    diesel::insert_into(anime::table)
+    use crate::schema::anime::dsl::anime;
+
+    // Check if the anime already exists
+    let anime_exists = diesel::select(diesel::dsl::exists(anime.filter(id.eq(new_anime.id))))
+        .get_result(connection)?;
+
+    if anime_exists {
+        return Ok(());
+    }
+
+    diesel::insert_into(anime)
         .values(&new_anime)
         .execute(connection)?;
 
