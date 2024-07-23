@@ -15,6 +15,7 @@ diesel::table! {
         #[sql_name = "type"]
         #[max_length = 50]
         type_ -> Varchar,
+        total_episodes -> Int4,
         #[max_length = 50]
         sub_or_dub -> Varchar,
     }
@@ -28,7 +29,22 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    episodes (id) {
+        #[max_length = 500]
+        id -> Varchar,
+        episode_no -> Int4,
+        #[max_length = 500]
+        title -> Varchar,
+        is_filler -> Bool,
+        anime_id -> Int4,
+    }
+}
+
+diesel::joinable!(episodes -> anime (anime_id));
+
 diesel::allow_tables_to_appear_in_same_query!(
     anime,
     anime_id,
+    episodes,
 );

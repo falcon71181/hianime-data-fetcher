@@ -1,7 +1,7 @@
 use diesel::prelude::*;
 use serde::Deserialize;
 
-use crate::schema::{anime, anime_id};
+use crate::schema::{anime, anime_id, episodes};
 
 #[derive(Queryable, Insertable, Selectable, Debug)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -16,6 +16,7 @@ pub struct Anime {
     pub image: String,
     pub type_: String,
     pub sub_or_dub: String,
+    pub total_episodes: i32,
 }
 
 #[derive(Queryable, Insertable, Selectable, Debug, Deserialize)]
@@ -23,4 +24,14 @@ pub struct Anime {
 #[diesel(table_name = anime_id)]
 pub struct AnimeID {
     pub anime_name: String,
+}
+
+#[derive(Queryable, Insertable, Selectable, Debug, Deserialize)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+#[diesel(table_name = episodes)]
+pub struct Episode {
+    pub id: String,
+    pub title: String,
+    pub is_filler: bool,
+    pub episode_no: i32,
 }
