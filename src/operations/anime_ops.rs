@@ -7,7 +7,7 @@ use crate::db::establish_connection;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
-use reqwest::Error as ReqwestError; // Rename to avoid conflict
+use reqwest::Error as ReqwestError;
 use serde::Deserialize;
 use tokio::task::{JoinError, JoinHandle};
 
@@ -42,12 +42,13 @@ impl From<ReqwestError> for CustomError {
 }
 
 // Function to add a new anime to the database
-pub fn add_new_anime(new_anime: Anime, connection: &mut PgConnection) -> Result<(), DieselError> {
+pub fn add_new_anime(new_anime: Anime) -> Result<(), DieselError> {
+    let mut connection = establish_connection();
     use crate::schema::anime::dsl::*;
 
     // Check if the anime already exists
     let anime_exists = diesel::select(diesel::dsl::exists(anime.filter(id.eq(&new_anime.id))))
-        .get_result(connection)?;
+        .get_result(&mut connection)?;
 
     if anime_exists {
         return Ok(());
@@ -55,7 +56,7 @@ pub fn add_new_anime(new_anime: Anime, connection: &mut PgConnection) -> Result<
 
     diesel::insert_into(anime)
         .values(&new_anime)
-        .execute(connection)?;
+        .execute(&mut connection)?;
 
     Ok(())
 }
@@ -72,11 +73,24 @@ pub fn delete_anime_by_id(
 }
 
 // Function to load all anime from the database
-pub fn load_all_anime(connection: &mut PgConnection) -> Result<(), DieselError> {
+pub fn load_all_anime() -> Result<(), DieselError> {
+    let mut connection = establish_connection();
     use crate::schema::anime::dsl::*;
-    let results = anime.select(Anime::as_select()).load::<Anime>(connection)?;
+    let results = anime
+        .select(Anime::as_select())
+        .load::<Anime>(&mut connection)?;
     println!("{:?}", results);
     Ok(())
+}
+
+// Function to load all anime_ids from the database
+pub fn load_all_anime_ids() -> Result<Vec<String>, DieselError> {
+    let mut connection = establish_connection();
+    use crate::schema::anime_id::dsl::*;
+    let results = anime_id
+        .select(anime_name)
+        .load::<String>(&mut connection)?;
+    Ok(results)
 }
 
 // Struct for deserializing anime data from API

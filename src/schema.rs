@@ -12,9 +12,8 @@ diesel::table! {
         japanese_title -> Nullable<Varchar>,
         #[max_length = 200]
         image -> Varchar,
-        #[sql_name = "type"]
         #[max_length = 50]
-        type_ -> Varchar,
+        category -> Varchar,
         total_episodes -> Int4,
         #[max_length = 50]
         sub_or_dub -> Varchar,
