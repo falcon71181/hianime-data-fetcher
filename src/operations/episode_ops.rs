@@ -5,6 +5,7 @@ use diesel::prelude::*;
 use diesel::result::Error as DieselError;
 use serde::Deserialize;
 use tokio::task::JoinHandle;
+use tokio::time::Duration;
 
 use super::anime_ops::{
     add_new_anime, add_new_anime_with_anime_id, load_all_anime_ids, CustomError,
@@ -19,8 +20,21 @@ pub struct AnimeDetails {
     pub mal_id: i32,
     pub al_id: i32,
     pub japanese_title: String,
+    pub synonyms: String,
     pub image: String,
     pub category: String,
+    pub rating: String,
+    pub quality: String,
+    pub duration: String,
+    pub premiered: String,
+    pub aired: String,
+    pub status: String,
+    pub mal_score: String,
+    pub studios: String,
+    pub producers: String,
+    pub genres: String,
+    pub sub_episodes: i32,
+    pub dub_episodes: i32,
     pub total_episodes: i32,
     pub sub_or_dub: String,
     pub episodes: Vec<EpisodeDetails>,
@@ -65,12 +79,12 @@ pub async fn fetch_anime_details(anime: String) -> Result<AnimeDetails, CustomEr
 }
 
 pub async fn store_anime_and_episode_data() -> Result<(), CustomError> {
-    // add_new_anime_with_anime_id().await;
+    // add_new_anime_with_anime_id().await?;
     let anime_list = load_all_anime_ids().unwrap();
 
     let mut handles: Vec<JoinHandle<Result<(), CustomError>>> = vec![];
     let no_of_animes: usize = anime_list.len();
-    let chunk_size: usize = 10;
+    let chunk_size: usize = 20;
 
     let mut count: usize = 0;
     while count < no_of_animes {
@@ -88,15 +102,27 @@ pub async fn store_anime_and_episode_data() -> Result<(), CustomError> {
                             mal_id: anime_data.mal_id,
                             al_id: anime_data.al_id,
                             japanese_title: Some(anime_data.japanese_title),
+                            synonyms: Some(anime_data.synonyms),
                             image: anime_data.image,
                             category: anime_data.category,
+                            rating: anime_data.rating,
+                            quality: anime_data.quality,
+                            duration: anime_data.duration,
+                            premiered: anime_data.premiered,
+                            aired: anime_data.aired,
+                            status: anime_data.status,
+                            mal_score: anime_data.mal_score,
+                            studios: anime_data.studios,
+                            producers: anime_data.producers,
+                            genres: anime_data.genres,
+                            sub_episodes: anime_data.sub_episodes,
+                            dub_episodes: anime_data.dub_episodes,
                             total_episodes: anime_data.total_episodes,
                             sub_or_dub: anime_data.sub_or_dub,
                         };
                         add_new_anime(anime_detail)?;
 
                         for episode_data in anime_data.episodes {
-                            println!("{:?}", episode_data);
                             let episode_detail = Episode {
                                 id: episode_data.id,
                                 title: episode_data.title,
@@ -119,6 +145,7 @@ pub async fn store_anime_and_episode_data() -> Result<(), CustomError> {
 
     // Wait for all tasks to complete and handle any errors
     for handle in handles {
+        tokio::time::sleep(Duration::from_secs(1)).await;
         if let Err(e) = handle.await? {
             eprintln!("Task failed: {:?}", e);
         }

@@ -10,10 +10,31 @@ diesel::table! {
         al_id -> Int4,
         #[max_length = 500]
         japanese_title -> Nullable<Varchar>,
+        #[max_length = 500]
+        synonyms -> Nullable<Varchar>,
         #[max_length = 200]
         image -> Varchar,
         #[max_length = 50]
         category -> Varchar,
+        #[max_length = 50]
+        rating -> Varchar,
+        #[max_length = 50]
+        quality -> Varchar,
+        #[max_length = 50]
+        duration -> Varchar,
+        #[max_length = 100]
+        premiered -> Varchar,
+        #[max_length = 100]
+        aired -> Varchar,
+        #[max_length = 50]
+        status -> Varchar,
+        #[max_length = 50]
+        mal_score -> Varchar,
+        studios -> Text,
+        producers -> Text,
+        genres -> Text,
+        sub_episodes -> Int4,
+        dub_episodes -> Int4,
         total_episodes -> Int4,
         #[max_length = 50]
         sub_or_dub -> Varchar,

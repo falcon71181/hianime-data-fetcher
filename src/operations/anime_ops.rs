@@ -10,6 +10,7 @@ use diesel::result::Error as DieselError;
 use reqwest::Error as ReqwestError;
 use serde::Deserialize;
 use tokio::task::{JoinError, JoinHandle};
+use tokio::time::Duration;
 
 use crate::model::{Anime, AnimeID};
 use crate::schema::{anime, anime_id};
@@ -161,6 +162,7 @@ pub async fn add_new_anime_with_anime_id() -> Result<(), CustomError> {
 
     // Wait for all tasks to complete and handle any errors
     for handle in handles {
+        tokio::time::sleep(Duration::from_secs(1)).await;
         handle.await??;
     }
 
