@@ -140,7 +140,7 @@ app.listen(PORT, () => {
 });
 
 interface MinimalAnime {
-  id: string | null;
+  id: number | null;
   title: string | null;
   image: string | null;
 }
@@ -177,7 +177,7 @@ const extract_about_info = (
           .find(".anisc-detail .film-buttons a.btn-play")
           .attr("href")
           ?.split("/")
-          ?.pop() || null;
+          ?.pop()?.split("-").pop() || null;
       const animeNAME =
         $(selectors)
           .find(".anisc-detail .film-name.dynamic-name")
@@ -234,7 +234,7 @@ const extract_about_info = (
       }
 
       info = {
-        id: animeID,
+        id: Number(animeID),
         mal_id: Number(mal_id),
         al_id: Number(anilist_id),
         title: animeNAME,
