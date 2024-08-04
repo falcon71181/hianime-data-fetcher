@@ -11,7 +11,9 @@ extern crate serde;
 extern crate serde_json;
 
 use model::Episode;
-use operations::episode_ops::{add_new_episode, fetch_anime_details, store_anime_and_episode_data};
+use operations::episode_ops::{
+    add_new_episode, fetch_anime_details, load_proxies, store_anime_and_episode_data,
+};
 use reqwest::Error;
 use serde::{Deserialize, Serialize};
 
@@ -25,8 +27,8 @@ use diesel::result::Error as DieselError;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    store_anime_and_episode_data().await;
     // add_new_anime_with_anime_id().await;
+    store_anime_and_episode_data().await;
     // let res = fetch_anime_details("jujutsu-kaisen-2nd-season-18413".to_string()).await;
     // println!("{:?}", res);
     // let anime_list = load_all_anime_ids();

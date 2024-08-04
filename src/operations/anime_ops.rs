@@ -21,6 +21,8 @@ pub enum CustomError {
     JoinError(JoinError),
     DieselError(DieselError),
     ReqwestError(ReqwestError),
+    NoProxiesAvailable,
+    FailedToFetchAfterRetries,
 }
 
 // Implement conversions from specific error types to CustomError

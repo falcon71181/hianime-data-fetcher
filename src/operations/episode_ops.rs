@@ -3,6 +3,8 @@ use crate::model::{Anime, Episode};
 use crate::schema::{anime, episodes};
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
+use rand::seq::SliceRandom;
+use reqwest::Client;
 use serde::Deserialize;
 use tokio::task::JoinHandle;
 use tokio::time::Duration;
@@ -10,6 +12,57 @@ use tokio::time::Duration;
 use super::anime_ops::{
     add_new_anime, add_new_anime_with_anime_id, load_all_anime_ids, CustomError,
 };
+
+// Define a struct to hold proxy data
+#[derive(Debug, Clone)]
+pub struct Proxy {
+    pub address: String,
+}
+
+// Function to get a random proxy from the list
+pub fn get_random_proxy(proxies: &[Proxy]) -> Option<Proxy> {
+    proxies.choose(&mut rand::thread_rng()).cloned()
+}
+
+// Fetch proxy list from URL
+pub async fn fetch_proxy_list(url: &str) -> Result<Vec<Proxy>, CustomError> {
+    let client = Client::new();
+    let response = client.get(url).send().await?.text().await?;
+    let proxies = response
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if !line.is_empty() {
+                Some(Proxy {
+                    address: line.to_string(),
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+    Ok(proxies)
+}
+
+// Load proxies from multiple sources
+pub async fn load_proxies() -> Result<Vec<Proxy>, CustomError> {
+    let sock5_url = "https://xxx/socks5.txt";
+    let sock4_url = "https://xxx/socks4.txt";
+    let http_url = "https://xxx/http.txt";
+
+    let (sock5_proxies, sock4_proxies, http_proxies) = tokio::try_join!(
+        fetch_proxy_list(sock5_url),
+        fetch_proxy_list(sock4_url),
+        fetch_proxy_list(http_url)
+    )?;
+
+    let mut all_proxies = Vec::new();
+    all_proxies.extend(sock5_proxies);
+    all_proxies.extend(sock4_proxies);
+    all_proxies.extend(http_proxies);
+
+    Ok(all_proxies)
+}
 
 // Struct for deserializing anime data from API
 #[derive(Debug, Deserialize)]
@@ -49,15 +102,17 @@ pub struct EpisodeDetails {
     pub episode_no: i32,
 }
 
+// Add new episode to the database
 pub fn add_new_episode(new_episode: Episode) -> Result<(), DieselError> {
     let mut connection = establish_connection();
     use crate::schema::episodes::dsl::*;
 
     // Check if the episode already exists
-    let anime_exists = diesel::select(diesel::dsl::exists(episodes.filter(id.eq(&new_episode.id))))
-        .get_result(&mut connection)?;
+    let episode_exists =
+        diesel::select(diesel::dsl::exists(episodes.filter(id.eq(&new_episode.id))))
+            .get_result(&mut connection)?;
 
-    if anime_exists {
+    if episode_exists {
         return Ok(());
     }
 
@@ -69,31 +124,64 @@ pub fn add_new_episode(new_episode: Episode) -> Result<(), DieselError> {
 }
 
 // Function to asynchronously fetch anime data from an API
-pub async fn fetch_anime_details(anime: String) -> Result<AnimeDetails, CustomError> {
-    let url = format!("http://localhost:3001/anime/{}", anime);
+pub async fn fetch_anime_details(
+    anime_id: String,
+    proxies: &[Proxy],
+) -> Result<AnimeDetails, CustomError> {
+    let mut attempts = 0;
+    let max_attempts = 5;
 
-    let response = reqwest::get(&url).await?.error_for_status()?;
-    let anime_detail: AnimeDetails = response.json().await?;
+    while attempts < max_attempts {
+        if let Some(proxy) = get_random_proxy(proxies) {
+            let client = Client::builder()
+                .proxy(reqwest::Proxy::http(&proxy.address)?)
+                .timeout(Duration::from_secs(10))
+                .build()?;
 
-    Ok(anime_detail)
+            let url = format!("http://localhost:3001/anime/{}", anime_id);
+            let response = client.get(&url).send().await;
+
+            match response {
+                Ok(resp) => {
+                    if resp.status().is_success() {
+                        let anime_data = resp.json().await?;
+                        return Ok(anime_data);
+                    } else {
+                        eprintln!("Failed with status: {:?}", resp.status());
+                    }
+                }
+                Err(e) => eprintln!("Failed to fetch with proxy: {:?}. Error: {:?}", proxy, e),
+            }
+        } else {
+            return Err(CustomError::NoProxiesAvailable);
+        }
+
+        attempts += 1;
+        // tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+
+    Err(CustomError::FailedToFetchAfterRetries)
 }
 
+// Store anime and episode data
 pub async fn store_anime_and_episode_data() -> Result<(), CustomError> {
-    // add_new_anime_with_anime_id().await?;
-    let anime_list = load_all_anime_ids().unwrap();
+    let anime_list = load_all_anime_ids().map_err(|e| CustomError::from(e))?;
+    let proxies = load_proxies().await?;
 
     let mut handles: Vec<JoinHandle<Result<(), CustomError>>> = vec![];
     let no_of_animes: usize = anime_list.len();
-    let chunk_size: usize = 20;
+    let chunk_size: usize = 100;
 
     let mut count: usize = 0;
     while count < no_of_animes {
         let end = (count + chunk_size).min(no_of_animes);
         let chunk: Vec<_> = anime_list[count..end].to_vec();
 
+        let proxies = proxies.clone();
+
         let handle = tokio::spawn(async move {
             for anime in chunk {
-                match fetch_anime_details(anime).await {
+                match fetch_anime_details(anime, &proxies).await {
                     Ok(anime_data) => {
                         let anime_detail = Anime {
                             id: anime_data.id,
