@@ -7,8 +7,10 @@ use crate::db::establish_connection;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
+use dotenvy::dotenv;
 use reqwest::Error as ReqwestError;
 use serde::Deserialize;
+use std::env;
 use tokio::task::{JoinError, JoinHandle};
 use tokio::time::Duration;
 
@@ -116,11 +118,12 @@ struct Episodes {
 }
 
 // Function to asynchronously fetch anime data from an API
+// TODO: impl custom api and proxies
 pub async fn fetch_data(page_no: u16) -> Result<Vec<AnimeID>, CustomError> {
-    let url = format!(
-        "https://api-anime-rouge.vercel.app/aniwatch/az-list?page={}",
-        page_no
-    );
+    dotenv().ok();
+
+    let atoz_list_url = env::var("ATOZLIST_URL").expect("ATOZLIST_URL must be set");
+    let url = format!("{}{}", atoz_list_url, page_no);
 
     let response = reqwest::get(&url).await?.error_for_status()?;
     let anime_list: Vec<AnimeName> = response.json().await?;
@@ -138,7 +141,8 @@ pub async fn fetch_data(page_no: u16) -> Result<Vec<AnimeID>, CustomError> {
 // Function to add new anime with corresponding anime IDs
 pub async fn add_new_anime_with_anime_id() -> Result<(), CustomError> {
     let mut handles: Vec<JoinHandle<Result<(), CustomError>>> = vec![];
-    const NO_OF_PAGES: u16 = 198;
+    // TODO: use web scraping to find last page no
+    const NO_OF_PAGES: u16 = 200;
     let mut count: u16 = 0;
 
     while count < NO_OF_PAGES {
