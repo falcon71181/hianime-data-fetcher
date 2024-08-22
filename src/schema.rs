@@ -50,6 +50,14 @@ diesel::table! {
 }
 
 diesel::table! {
+    anime_staff (anime_id, staff_id) {
+        anime_id -> Int4,
+        staff_id -> Int4,
+        positions -> Array<Nullable<Text>>,
+    }
+}
+
+diesel::table! {
     episodes (id) {
         #[max_length = 500]
         id -> Varchar,
@@ -61,10 +69,26 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    staff (mal_id) {
+        mal_id -> Int4,
+        #[max_length = 255]
+        name -> Varchar,
+        #[max_length = 500]
+        mal_url -> Varchar,
+        image -> Jsonb,
+        positions -> Array<Nullable<Text>>,
+    }
+}
+
+diesel::joinable!(anime_staff -> anime (anime_id));
+diesel::joinable!(anime_staff -> staff (staff_id));
 diesel::joinable!(episodes -> anime (anime_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     anime,
     anime_id,
+    anime_staff,
     episodes,
+    staff,
 );
