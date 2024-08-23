@@ -1,7 +1,7 @@
-use diesel::prelude::*;
+use diesel::{prelude::*, sql_types::Array};
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{anime, anime_id, episodes};
+use crate::schema::{anime, anime_id, anime_staff, episodes, staff};
 
 #[derive(Queryable, Insertable, Selectable, Debug)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -48,4 +48,24 @@ pub struct Episode {
     pub is_filler: bool,
     pub episode_no: i32,
     pub anime_id: i32,
+}
+
+#[derive(Queryable, Insertable, Selectable, Debug, Deserialize)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+#[diesel(table_name = staff)]
+pub struct Staff {
+    pub mal_id: i32,
+    pub name: String,
+    pub mal_url: String,
+    pub image: String,
+    pub positions: Vec<Option<String>>,
+}
+
+#[derive(Queryable, Insertable, Selectable, Debug, Deserialize)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+#[diesel(table_name = anime_staff)]
+pub struct AnimeStaff {
+    pub anime_id: i32,
+    pub staff_id: i32,
+    pub positions: Vec<Option<String>>,
 }

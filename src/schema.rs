@@ -76,7 +76,8 @@ diesel::table! {
         name -> Varchar,
         #[max_length = 500]
         mal_url -> Varchar,
-        image -> Jsonb,
+        #[max_length = 200]
+        image -> Varchar,
         positions -> Array<Nullable<Text>>,
     }
 }

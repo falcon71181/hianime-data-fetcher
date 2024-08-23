@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS staff (
     mal_id      INT PRIMARY KEY,
     name        VARCHAR(255) NOT NULL,
     mal_url     VARCHAR(500) NOT NULL,
-    image       JSONB NOT NULL,
+    image       VARCHAR(200) NOT NULL,
     positions   TEXT[] NOT NULL
 );
 
