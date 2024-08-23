@@ -12,12 +12,16 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 
+use std::vec;
+
 use model::Episode;
 use operations::atoz_ops::get_last_page_no_of_atoz_list;
 use operations::episode_ops::{
     add_new_episode, fetch_anime_details, load_proxies, store_anime_and_episode_data,
 };
-use operations::staff_ops::fetch_jikan_staff_response;
+use operations::staff_ops::{
+    fetch_jikan_staff_response, insert_into_anime_staff, insert_or_update_staff, StaffResponse,
+};
 use reqwest::Error;
 use serde::{Deserialize, Serialize};
 
@@ -31,8 +35,14 @@ use diesel::result::Error as DieselError;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("{:?}", fetch_jikan_staff_response(21).await.unwrap());
-    // println!("{}", get_last_page_no_of_atoz_list().await.unwrap());
+    let response = fetch_jikan_staff_response(21).await.unwrap();
+    let veec = response.data.iter();
+
+    for i in veec {
+        insert_into_anime_staff(i, 21);
+        insert_or_update_staff(i);
+    }
+
     // add_new_anime_with_anime_id().await;
     // store_anime_and_episode_data().await;
     // let res = fetch_anime_details("jujutsu-kaisen-2nd-season-18413".to_string()).await;
