@@ -4,18 +4,22 @@ extern crate reqwest;
 extern crate serde;
 
 use crate::db::establish_connection;
+use crate::model::{Anime, AnimeID};
+use crate::operations::atoz_ops::get_last_page_no_of_atoz_list;
+use crate::schema::{anime, anime_id};
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
 use dotenvy::dotenv;
 use reqwest::Error as ReqwestError;
 use serde::Deserialize;
+use std::boxed::Box;
 use std::env;
-use tokio::task::{JoinError, JoinHandle};
-use tokio::time::Duration;
-
-use crate::model::{Anime, AnimeID};
-use crate::schema::{anime, anime_id};
+use std::error::Error as StdError;
+use std::fmt;
+use std::fmt::Formatter;
+use tokio::task::JoinError;
+use tokio::task::JoinHandle;
 
 // Define CustomError for handling multiple error types
 #[derive(Debug)]
@@ -25,6 +29,21 @@ pub enum CustomError {
     ReqwestError(ReqwestError),
     NoProxiesAvailable,
     FailedToFetchAfterRetries,
+    Other(String),
+}
+
+// Implement `fmt::Display` for `CustomError`
+impl fmt::Display for CustomError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            CustomError::JoinError(err) => write!(f, "Join Error: {}", err),
+            CustomError::DieselError(err) => write!(f, "Diesel Error: {}", err),
+            CustomError::ReqwestError(err) => write!(f, "Reqwest Error: {}", err),
+            CustomError::NoProxiesAvailable => write!(f, "No proxies available"),
+            CustomError::FailedToFetchAfterRetries => write!(f, "Failed to fetch after retries"),
+            CustomError::Other(msg) => write!(f, "{}", msg),
+        }
+    }
 }
 
 // Implement conversions from specific error types to CustomError
@@ -46,6 +65,16 @@ impl From<ReqwestError> for CustomError {
     }
 }
 
+// Implement `From<Box<dyn StdError>>` for `CustomError`
+impl From<Box<dyn StdError>> for CustomError {
+    fn from(err: Box<dyn StdError>) -> Self {
+        CustomError::Other(err.to_string())
+    }
+}
+
+// Implement `StdError` for `CustomError`
+impl StdError for CustomError {}
+
 // Function to add a new anime to the database
 pub fn add_new_anime(new_anime: Anime) -> Result<(), DieselError> {
     let mut connection = establish_connection();
@@ -56,16 +85,42 @@ pub fn add_new_anime(new_anime: Anime) -> Result<(), DieselError> {
         .get_result(&mut connection)?;
 
     if anime_exists {
-        return Ok(());
+        // Update existing anime
+        diesel::update(anime.find(new_anime.id))
+            .set((
+                title.eq(new_anime.title),
+                description.eq(new_anime.description),
+                mal_id.eq(new_anime.mal_id),
+                al_id.eq(new_anime.al_id),
+                japanese_title.eq(new_anime.japanese_title),
+                synonyms.eq(new_anime.synonyms),
+                image.eq(new_anime.image),
+                category.eq(new_anime.category),
+                rating.eq(new_anime.rating),
+                quality.eq(new_anime.quality),
+                duration.eq(new_anime.duration),
+                premiered.eq(new_anime.premiered),
+                aired.eq(new_anime.aired),
+                status.eq(new_anime.status),
+                mal_score.eq(new_anime.mal_score),
+                studios.eq(new_anime.studios),
+                producers.eq(new_anime.producers),
+                genres.eq(new_anime.genres),
+                sub_episodes.eq(new_anime.sub_episodes),
+                dub_episodes.eq(new_anime.dub_episodes),
+                total_episodes.eq(new_anime.total_episodes),
+                sub_or_dub.eq(new_anime.sub_or_dub),
+            ))
+            .execute(&mut connection)?;
+    } else {
+        // Insert new anime
+        diesel::insert_into(anime)
+            .values(&new_anime)
+            .execute(&mut connection)?;
     }
-
-    diesel::insert_into(anime)
-        .values(&new_anime)
-        .execute(&mut connection)?;
 
     Ok(())
 }
-
 // Function to delete an anime by its ID
 pub fn delete_anime_by_id(
     anime_id: i32,
@@ -142,7 +197,7 @@ pub async fn fetch_data(page_no: u16) -> Result<Vec<AnimeID>, CustomError> {
 pub async fn add_new_anime_with_anime_id() -> Result<(), CustomError> {
     let mut handles: Vec<JoinHandle<Result<(), CustomError>>> = vec![];
     // TODO: use web scraping to find last page no
-    const NO_OF_PAGES: u16 = 200;
+    let NO_OF_PAGES: u16 = get_last_page_no_of_atoz_list().await?;
     let mut count: u16 = 0;
 
     while count < NO_OF_PAGES {
@@ -156,7 +211,7 @@ pub async fn add_new_anime_with_anime_id() -> Result<(), CustomError> {
                                 insert_into_anime_id(&anime_id)?;
                             }
                         }
-                        Err(e) => (),
+                        Err(e) => (eprint!("{}", e)),
                     }
                 }
                 Ok(())
@@ -168,7 +223,6 @@ pub async fn add_new_anime_with_anime_id() -> Result<(), CustomError> {
 
     // Wait for all tasks to complete and handle any errors
     for handle in handles {
-        tokio::time::sleep(Duration::from_secs(1)).await;
         handle.await??;
     }
 

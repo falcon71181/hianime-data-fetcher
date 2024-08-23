@@ -1,6 +1,5 @@
 use crate::db::establish_connection;
 use crate::model::{Anime, Episode};
-use crate::schema::{anime, episodes};
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
 use dotenvy::dotenv;
@@ -11,9 +10,7 @@ use std::env;
 use tokio::task::JoinHandle;
 use tokio::time::Duration;
 
-use super::anime_ops::{
-    add_new_anime, add_new_anime_with_anime_id, load_all_anime_ids, CustomError,
-};
+use super::anime_ops::{add_new_anime, load_all_anime_ids, CustomError};
 
 // Define a struct to hold proxy data
 #[derive(Debug, Clone)]
@@ -159,12 +156,21 @@ pub fn add_new_episode(new_episode: Episode) -> Result<(), DieselError> {
             .get_result(&mut connection)?;
 
     if episode_exists {
-        return Ok(());
+        // Update existing episode
+        diesel::update(episodes.filter(id.eq(&new_episode.id)))
+            .set((
+                title.eq(&new_episode.title),
+                is_filler.eq(new_episode.is_filler),
+                episode_no.eq(new_episode.episode_no),
+                anime_id.eq(new_episode.anime_id),
+            ))
+            .execute(&mut connection)?;
+    } else {
+        // Insert new episode
+        diesel::insert_into(episodes)
+            .values(&new_episode)
+            .execute(&mut connection)?;
     }
-
-    diesel::insert_into(episodes)
-        .values(&new_episode)
-        .execute(&mut connection)?;
 
     Ok(())
 }
@@ -183,7 +189,7 @@ pub async fn fetch_anime_details(
         if let Some(proxy) = get_random_proxy(proxies) {
             let client = Client::builder()
                 .proxy(reqwest::Proxy::http(&proxy.address)?)
-                .timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(5))
                 .build()?;
 
             let url = format!("{}/{}", anime_fetcher_url, anime_id);
@@ -289,7 +295,6 @@ pub async fn store_anime_and_episode_data() -> Result<(), CustomError> {
 
     // Wait for all tasks to complete and handle any errors
     for handle in handles {
-        tokio::time::sleep(Duration::from_secs(1)).await;
         if let Err(e) = handle.await? {
             eprintln!("Task failed: {:?}", e);
         }
