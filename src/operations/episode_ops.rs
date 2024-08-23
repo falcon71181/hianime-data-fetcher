@@ -1,5 +1,6 @@
 use crate::db::establish_connection;
 use crate::model::{Anime, Episode};
+use crate::operations::anime_ops::{add_new_anime, load_all_anime_ids};
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
 use dotenvy::dotenv;
@@ -10,7 +11,7 @@ use std::env;
 use tokio::task::JoinHandle;
 use tokio::time::Duration;
 
-use super::anime_ops::{add_new_anime, load_all_anime_ids, CustomError};
+use super::anime_ops::CustomError;
 
 // Define a struct to hold proxy data
 #[derive(Debug, Clone)]
@@ -299,6 +300,8 @@ pub async fn store_anime_and_episode_data() -> Result<(), CustomError> {
             eprintln!("Task failed: {:?}", e);
         }
     }
+
+    println!("{}", "Anime and Episode Data fetching Complete.");
 
     Ok(())
 }

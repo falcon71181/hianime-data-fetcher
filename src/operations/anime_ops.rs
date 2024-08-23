@@ -226,6 +226,8 @@ pub async fn add_new_anime_with_anime_id() -> Result<(), CustomError> {
         handle.await??;
     }
 
+    println!("{}", "Anime IDs fetching Complete.");
+
     Ok(())
 }
 

@@ -7,7 +7,7 @@ use scraper::{Html, Selector};
 use std::error::Error;
 
 #[derive(Debug)]
-pub enum CustomError {
+enum CustomError {
     ReqwestError(reqwest::Error),
     ScraperError(SelectorErrorKind<'static>),
 }
