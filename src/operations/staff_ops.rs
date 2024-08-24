@@ -1,21 +1,28 @@
-use std::env;
+use std::{collections::HashSet, env, time::Duration};
 
 use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl};
 use dotenvy::dotenv;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use tokio::task::JoinHandle;
 
 use crate::{
     db::establish_connection,
     model::{AnimeStaff, Staff},
-    schema::anime_staff::dsl::{
-        anime_id as anime_staff_anime_id, positions as anime_staff_positions,
-        staff_id as anime_staff_staff_id,
+    operations::episode_ops::load_proxies,
+    schema::{
+        anime_staff::dsl::{
+            anime_id as anime_staff_anime_id, positions as anime_staff_positions,
+            staff_id as anime_staff_staff_id,
+        },
+        staff::dsl::{mal_id as staff_mal_id, positions as staff_positions},
     },
-    schema::staff::dsl::{mal_id as staff_mal_id, positions as staff_positions},
 };
 
-use super::anime_ops::CustomError;
+use super::{
+    anime_ops::{load_all_anime_mal_id, CustomError},
+    episode_ops::{get_random_proxy, Proxy},
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StaffResponse {
@@ -128,27 +135,69 @@ pub fn insert_into_anime_staff(
     Ok(())
 }
 
-pub async fn fetch_jikan_staff_response(anime_mal_id: u16) -> Result<StaffResponse, CustomError> {
+pub async fn fetch_jikan_staff_response(
+    anime_mal_id: i32,
+    proxies: &[Proxy],
+) -> Result<StaffResponse, CustomError> {
     dotenv().ok();
     let jikan_api_url = env::var("JIKAN_API_URL").expect("JIKAN_API_URL must be set.");
 
-    let client = Client::new();
-    let staff_url = format!("{}/anime/{}/staff", jikan_api_url, anime_mal_id);
-    let response = client.get(staff_url).send().await;
+    let mut attempts = 0;
+    let max_attempts = 100;
 
-    match response {
-        Ok(res) => {
-            if res.status().is_success() {
-                let staff_data = res.json().await?;
-                return Ok(staff_data);
-            } else {
-                eprintln!("Failed with status: {:?}", res.status());
+    while attempts < max_attempts {
+        if let Some(proxy) = get_random_proxy(proxies) {
+            let client = Client::builder()
+                .proxy(reqwest::Proxy::http(&proxy.address)?)
+                .timeout(Duration::from_secs(5))
+                .build()?;
+            let staff_url = format!("{}/{}/staff", jikan_api_url, anime_mal_id);
+            let response = client.get(staff_url).send().await;
+
+            match response {
+                Ok(res) => {
+                    if res.status().is_success() {
+                        let staff_data = res.json().await?;
+                        return Ok(staff_data);
+                    }
+                }
+                Err(_e) => (),
             }
+        } else {
+            return Err(CustomError::NoProxiesAvailable);
         }
-        Err(_e) => eprintln!("Failed to fetch staff data for {}.", anime_mal_id),
+
+        attempts += 1;
     }
 
+    eprintln!("Failed to fetch staff data for {}.", anime_mal_id);
     Err(CustomError::FailedToFetchAfterRetries)
+}
+
+pub async fn store_staff_and_anime_staff() -> Result<(), CustomError> {
+    let hset: HashSet<i32> = load_all_anime_mal_id()?;
+
+    let proxies = load_proxies().await?;
+
+    for &count in hset.iter() {
+        // Iterate by value instead of reference
+        let proxies = proxies.clone();
+
+        match fetch_jikan_staff_response(count, &proxies).await {
+            Ok(response) => {
+                for i in response.data.iter() {
+                    println!("{:?}", response.data);
+                    insert_or_update_staff(i);
+                    insert_into_anime_staff(i, count);
+                }
+            }
+            Err(_) => (),
+        };
+    }
+
+    println!("Fetching staff data Complete.");
+
+    Ok(())
 }
 
 pub fn convert_vec_string_to_vec_option_string(strings: Vec<String>) -> Vec<Option<String>> {

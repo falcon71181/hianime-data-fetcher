@@ -6,6 +6,7 @@ extern crate serde;
 use crate::db::establish_connection;
 use crate::model::{Anime, AnimeID};
 use crate::operations::atoz_ops::get_last_page_no_of_atoz_list;
+use crate::schema::staff::mal_id;
 use crate::schema::{anime, anime_id};
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
@@ -14,6 +15,7 @@ use dotenvy::dotenv;
 use reqwest::Error as ReqwestError;
 use serde::Deserialize;
 use std::boxed::Box;
+use std::collections::HashSet;
 use std::env;
 use std::error::Error as StdError;
 use std::fmt;
@@ -141,6 +143,22 @@ pub fn load_all_anime() -> Result<(), DieselError> {
         .load::<Anime>(&mut connection)?;
     println!("{:?}", results);
     Ok(())
+}
+
+// Function to load all anime mal_id from the database
+pub fn load_all_anime_mal_id() -> Result<HashSet<i32>, DieselError> {
+    let mut connection = establish_connection();
+    use crate::schema::anime::dsl::*;
+
+    // Load the results from the database
+    let results = anime.select(mal_id).load::<i32>(&mut connection)?;
+
+    // Convert Vec<i32> to HashSet<i32>
+    let mut result_set: HashSet<i32> = results.into_iter().collect();
+
+    result_set.remove(&0);
+
+    Ok(result_set)
 }
 
 // Function to load all anime_ids from the database

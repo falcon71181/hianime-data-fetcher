@@ -182,7 +182,7 @@ pub async fn fetch_anime_details(
     proxies: &[Proxy],
 ) -> Result<AnimeDetails, CustomError> {
     let mut attempts = 0;
-    let max_attempts = 5;
+    let max_attempts = 100;
     dotenv().ok();
     let anime_fetcher_url = env::var("ANIME_FETCHER_URL").expect("ANIME_FETCHER_URL must be set.");
 
@@ -205,7 +205,7 @@ pub async fn fetch_anime_details(
                         eprintln!("Failed with status: {:?}", resp.status());
                     }
                 }
-                Err(e) => eprintln!("Failed to fetch with proxy: {:?}. Error: {:?}", proxy, e),
+                Err(_e) => (),
             }
         } else {
             return Err(CustomError::NoProxiesAvailable);
@@ -214,7 +214,7 @@ pub async fn fetch_anime_details(
         attempts += 1;
         // tokio::time::sleep(Duration::from_secs(1)).await;
     }
-
+    eprintln!("Failed to fetch : {}", anime_id);
     Err(CustomError::FailedToFetchAfterRetries)
 }
 
