@@ -1,5 +1,5 @@
 import express from "express";
-import { AnimeClient, JikanResponse, Anime as JikanAnime } from '@tutkli/jikan-ts';
+import Jikan from 'jikan4.js';
 import { load, type CheerioAPI, type SelectorType } from "cheerio";
 import createHttpError from "http-errors";
 import axios, { AxiosError } from "axios";
@@ -477,7 +477,7 @@ export const extract_episodes_info = (
   }
 };
 
-const animeClient = new AnimeClient();
+const animeClient = new Jikan.Client();
 
 app.get("/anime/:anime_mal_id/staff", async (req, res) => {
   try {
@@ -485,7 +485,7 @@ app.get("/anime/:anime_mal_id/staff", async (req, res) => {
     if (isNaN(animeMalId)) {
       return res.status(400).json({ error: 'Invalid anime_mal_id' });
     }
-    const response = await animeClient.getAnimeStaff(animeMalId);
+    const response = await animeClient.anime.getStaff(animeMalId);
     res.status(200).json(response);
   } catch (error) {
     console.error('Error fetching anime staff:', error);
