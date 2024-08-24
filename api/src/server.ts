@@ -1,4 +1,5 @@
 import express from "express";
+import { AnimeClient, JikanResponse, Anime as JikanAnime } from '@tutkli/jikan-ts';
 import { load, type CheerioAPI, type SelectorType } from "cheerio";
 import createHttpError from "http-errors";
 import axios, { AxiosError } from "axios";
@@ -475,5 +476,21 @@ export const extract_episodes_info = (
     }
   }
 };
+
+const animeClient = new AnimeClient();
+
+app.get("/anime/:anime_mal_id/staff", async (req, res) => {
+  try {
+    const animeMalId = Number(req.params.anime_mal_id);
+    if (isNaN(animeMalId)) {
+      return res.status(400).json({ error: 'Invalid anime_mal_id' });
+    }
+    const response = await animeClient.getAnimeStaff(animeMalId);
+    res.status(200).json(response);
+  } catch (error) {
+    console.error('Error fetching anime staff:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
 
 export default app;
